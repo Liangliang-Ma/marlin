@@ -15,6 +15,7 @@ DEV = torch.device('cuda:0')
 
 
 def gen_quant4(m, n, groupsize=-1):
+    print("gen quant4, 64*256")
     tile = 16
     maxq = 2 ** 4 - 1
     w = torch.randn((m, n), dtype=torch.half, device=DEV)
@@ -56,6 +57,7 @@ def gen_quant4(m, n, groupsize=-1):
 class Test(unittest.TestCase):
 
     def run_problem(self, m, n, k, thread_k, thread_n, groupsize=-1):
+        print("run problem")
         print('% 5d % 6d % 6d % 4d % 4d % 4d' % (m, n, k, thread_k, thread_n, groupsize))
         A = torch.randn((m, k), dtype=torch.half, device=DEV)
         B_ref, B, s = gen_quant4(k, n, groupsize=groupsize)
@@ -67,7 +69,7 @@ class Test(unittest.TestCase):
         self.assertLess(torch.mean(torch.abs(C - C_ref)) / torch.mean(torch.abs(C_ref)), 0.001)
 
     def test_tiles(self):
-        print()
+        print("test tiles\n")
         for m in [1, 2, 3, 4, 8, 12, 16, 24, 32, 48, 64, 118, 128, 152, 768, 1024]:
             for thread_k, thread_n in [(64, 256), (128, 128)]:
                 if m > 16 and thread_k == 128:
@@ -75,17 +77,17 @@ class Test(unittest.TestCase):
                 self.run_problem(m, 2 * 256, 1024, thread_k, thread_n)
 
     def test_k_stages_divisibility(self):
-        print()
+        print("test_k_stages_divisibility")
         for k in [3 * 64 + 64 * 4 * 2 + 64 * i for i in range(1, 4)]:
             self.run_problem(16, 2 * 256, k, 64, 256)
 
     def test_very_few_stages(self):
-        print()
+        print("test_very_few_stages")
         for k in [64, 128, 192]:
             self.run_problem(16, 2 * 256, k, 64, 256)
 
     def test_llama_shapes(self):
-        print()
+        print("test_llama_shapes")
         return
         MODELS = {
             ' 7B': [
@@ -120,7 +122,7 @@ class Test(unittest.TestCase):
                         self.run_problem(batch, layer[1], layer[0], thread_k, thread_n)
 
     def test_errors(self):
-        print()
+        print("test_errors")
         m, n, k = 16, 256, 64
         A = torch.randn((m, k), dtype=torch.half, device=DEV)
         B_ref, B, s = gen_quant4(k, n)
@@ -130,24 +132,24 @@ class Test(unittest.TestCase):
         try:
             marlin.mul(A, B, C, s, workspace, 128, 128, -1)
         except:
-            err = True 
+            err = True
         self.assertTrue(err)
         err = False
         try:
             marlin.mul(A, B, C, s, workspace, 256, 256, -1)
         except:
-            err = True 
+            err = True
         self.assertTrue(err)
         s = torch.zeros((2, n), dtype=torch.half, device=DEV)
         err = False
         try:
             marlin.mul(A, B, C, s, workspace, 256, 256, -1)
         except:
-            err = True 
+            err = True
         self.assertTrue(err)
 
     def test_groups(self):
-        print()
+        print("test_groups")
         for m in [16]:
             for groupsize in [128]:
                 for n, k in [(256, 512), (256, 1024), (256 * 128, 1024)]:
@@ -156,4 +158,5 @@ class Test(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(defaultTest="Test.test_errors")
+    # Test.test_errors()
