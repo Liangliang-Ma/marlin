@@ -35,7 +35,7 @@ def mul(A, B, C, s, workspace, thread_k=-1, thread_n=-1, sms=-1, max_par=16):
     marlin_cuda.mul(A, B, C, s, workspace, thread_k, thread_n, sms, max_par)
 
 
-# Precompute permutations for Marlin weight and scale shuffling 
+# Precompute permutations for Marlin weight and scale shuffling
 
 def _get_perms():
     perm = []
@@ -103,7 +103,7 @@ class Layer(nn.Module):
         """Pack a fake-quantized linear layer into this actual Marlin representation.
         @linear: fake-quantized `torch.nn.Linear` layer to convert (must be of type `torch.half`)
         @scales: corresponding quantization scales of shape `(infeatures, groups)`
-        """ 
+        """
         if linear.weight.dtype != torch.half:
             raise ValueError('Only `torch.half` weights are supported.')
         tile = 16
@@ -128,9 +128,20 @@ class Layer(nn.Module):
         s = s.reshape((-1, self.n)).contiguous()
         w = w.reshape((self.k // tile, tile, self.n // tile, tile))
         w = w.permute((0, 2, 1, 3))
+
+# tmp
+        base = torch.arange(256, dtype=torch.int32)
+        w = base.view(1, 1, 256).expand(4, 16, 256)
         w = w.reshape((self.k // tile, self.n * tile))
+
+        print("base w", w.flatten()[:256])
         res = w
         res = res.reshape((-1, _perm.numel()))[:, _perm].reshape(res.shape)
+        print("perm w", res.flatten()[:256])
+
+
+
+
         q = np.zeros((res.shape[0], res.shape[1] // 8), dtype=np.uint32)
         res = res.cpu().numpy().astype(np.uint32)
         for i in range(8):
@@ -142,7 +153,7 @@ class Layer(nn.Module):
 
 def replace_linear(module, name_filter=lambda n: True, groupsize=-1, name=''):
     """Recursively replace all `torch.nn.Linear` layers by empty Marlin layers.
-    @module: top-level module in which to perform the replacement 
+    @module: top-level module in which to perform the replacement
     @name_filter: lambda indicating if a layer should be replaced
     @groupsize: marlin groupsize
     @name: root-level name
