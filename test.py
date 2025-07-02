@@ -19,7 +19,12 @@ def gen_quant4(m, n, groupsize=-1):
     tile = 16
     maxq = 2 ** 4 - 1
     # w = torch.randn((m, n), dtype=torch.half, device=DEV)
-    w = torch.arange(m*n, dtype=torch.half).reshape(m, n)
+    base = torch.arange(256, dtype=torch.int32)
+    w = base.view(1, 1, 256).expand(4, 16, 256).reshape(4,16,16,16).permute(0, 2, 1, 3).reshape(64, 256).half().to('cuda:0')
+    print("my w", w[0][:32], w[63][:32])
+
+
+    # w = torch.arange(m*n, dtype=torch.half).reshape(m, n)
     if groupsize != -1:
         w = w.reshape((-1, groupsize, n))
         w = w.permute(1, 0, 2)

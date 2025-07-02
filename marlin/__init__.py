@@ -67,6 +67,23 @@ def _get_perms():
 
 _perm, _scale_perm, _scale_perm_single = _get_perms()
 
+def print_16x16_tile(name, tensor):
+    print("matrix of ", name)
+    if tensor.shape != (16, 16):
+        if tensor.numel() != 256:
+            raise ValueError(f"Tensor has {tensor.numel()} elements, cannot reshape to 16x16.")
+        tensor = tensor.clone().view(16, 16)
+    max_val = torch.max(torch.abs(tensor)).item()
+    field_width = len(str(max(abs(tensor.min().item()), tensor.max().item()))) + 1  # +1 for sign or space
+
+    print("     " + " ".join(f"{i:>{field_width}}" for i in range(16)))
+
+    for i, row in enumerate(tensor):
+        print(f"{i:02} | " + " ".join(f"{val.item():>{field_width}}" for val in row))
+
+def bp():
+    import ipdb
+    ipdb.set_trace()
 
 class Layer(nn.Module):
     """PyTorch compatible Marlin layer; 4-bit (symmetric grouped) linear layer without bias."""
@@ -130,16 +147,20 @@ class Layer(nn.Module):
         w = w.permute((0, 2, 1, 3))
 
 # tmp
-        base = torch.arange(256, dtype=torch.int32)
-        w = base.view(1, 1, 256).expand(4, 16, 256)
+        # base = torch.arange(256, dtype=torch.int32)
+        # w = base.view(1, 1, 256).expand(4, 16, 256)
         w = w.reshape((self.k // tile, self.n * tile))
 
-        print("base w", w.flatten()[:256])
+
+        # bp()
+
+        print_16x16_tile("w", w.flatten()[:256])
+        print_16x16_tile("perm", _perm.flatten()[:256])
+
+
         res = w
         res = res.reshape((-1, _perm.numel()))[:, _perm].reshape(res.shape)
-        print("perm w", res.flatten()[:256])
-
-
+        print_16x16_tile("res", res.flatten()[:256])
 
 
         q = np.zeros((res.shape[0], res.shape[1] // 8), dtype=np.uint32)
